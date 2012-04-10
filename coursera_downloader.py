@@ -2,9 +2,9 @@
 # Developed with pyton 2.7
 # Copyright 2012 Logan Ding <logan.ding@gmail.com>. All Rights Reserved.
 #
-#---------------------------------------------                             
-#    Coursera.org Downloader <Version 1.1>   
-#          by Logan Ding                                      
+#---------------------------------------------
+#    Coursera.org Downloader <Version 1.1>
+#          by Logan Ding
 #---------------------------------------------
 #
 # Dependent on 'mechanize'. Use 'easy_install mechanize' first if 'mechanize' not installed.
@@ -18,6 +18,8 @@
 # Download videos, subtitles, PDF and PPT(X) slides.
 # Has problem to resolve subtitles for 'modelthinking'. Ignored...now.
 
+import getpass
+import optparse
 import cookielib, re, sys, os
 try:
     import mechanize
@@ -40,12 +42,12 @@ def split_string(source,splitlist):
             tmp = ''
     if tmp != '':
         result.append(tmp)
-    return result      
+    return result
 
 def resolve_name_with_hex(name):
     r = re.finditer(r'%\w\w', name)
     for m in r:
-        c = m.group()[1:].decode('hex') 
+        c = m.group()[1:].decode('hex')
         c = c if c not in '\/:*?"<>|' else '_'
         name = re.sub(m.group(), c, name)
     return name
@@ -137,7 +139,7 @@ def resolve_resources(br, path, course):
         print 'Can NOT match video names with subtitiles. Ignore...'
         txt = []
     return video, srt, txt, pdf, pptx
-    
+
 def downloader(video, srt, txt, pdf, pptx, br, path):
     # Only single download thread supported right now.
     print
@@ -153,7 +155,7 @@ def downloader(video, srt, txt, pdf, pptx, br, path):
     x = choose_download(pptx)
 
     # Combine all to be downloaded together for multiple downloading threads later
-    all = v + s + t + f + x 
+    all = v + s + t + f + x
     for r in all:
         filename = os.path.join(path, r[0])
         print 'Downloading', r[0]
@@ -173,7 +175,7 @@ def parse_choice(input):
     if input == '':
         return input
     input = split_string(input, ' ,')
-    # This split can handle your input as: 1,3,4-5 or 1 3 4-5 or 1, 3, 4-5. Besides, range input support 4-5 or 4:5 
+    # This split can handle your input as: 1,3,4-5 or 1 3 4-5 or 1, 3, 4-5. Besides, range input support 4-5 or 4:5
     choice = []
     for e in input:
         if e.isdigit():
@@ -187,7 +189,7 @@ def parse_choice(input):
                 for num in range(int(s[0]), int(s[1])+1):
                     if num not in choice:
                         choice.append(num)
-    return sorted(choice)           
+    return sorted(choice)
 
 def choose_download(resource):
     for i in range(len(resource)):
@@ -203,18 +205,6 @@ def choose_download(resource):
             download.append(resource[i])
     return download
 
-def download_path():
-    if len(sys.argv) > 1:
-        if not os.path.exists(sys.argv[1]):
-            try:
-                os.mkdir(sys.argv[1])
-            except Exception, error:
-                print error
-                sys.exit(1)
-        return os.path.abspath(sys.argv[1])
-    else:
-        return os.path.abspath('.')
-
 def main():
     print '----------------------------------'
     print '-    Coursera.org Downloader     -'
@@ -223,27 +213,39 @@ def main():
     print
     # Add courses by yourself. Not all tested. You can feed back.
     course = { '1' : 'modelthinking',
-               '2' : 'gametheory',  
+               '2' : 'gametheory',
                '3' : 'crypto',
                '4' : 'saas',
-               '5' : 'pgm', 
+               '5' : 'pgm',
                '6' : 'algo'}
+    p = optparse.OptionParser()
+    p.add_option("-u", "--username", help="coursera account username")
+    p.add_option("-p", "--password", help="coursera account password")
+    p.add_option("-d", "--download-path", help="where to put downloaded files")
+    p.add_option("-c", "--course", help="course to download")
+    options, args = p.parse_args()
 
-    # Your Coursera.org email and password needed here to download videos. 
-    email = 'youremail'
-    password = 'password'
+    if not options.username:
+        options.username = raw_input("Username: ")
 
-    if email == 'youremail':
-        print 'You must change the email and the password to yours in main() first.'
-        sys.exit(1)
+    if not options.password:
+        options.password = getpass.getpass("Password (will not echo): ")
 
-    path  = download_path()
-    print 'All files will be downloaded to:', path
+    if not options.download_path:
+        options.download_path = "."
+
+    options.download_path = os.path.abspath(options.download_path)
+
+    if not options.course:
+        options.course = choose_course(course)
+
+    print 'All files will be downloaded to:', options.download_path
     print
-    course = choose_course(course)
-    br = initialize_browser(course, email, password)
-    vidoe, srt, txt, pdf, pptx = resolve_resources(br, path, course)
-    downloader(vidoe, srt, txt, pdf, pptx, br, path)
+
+    br = initialize_browser(options.course, options.username, options.password)
+    vidoe, srt, txt, pdf, pptx = resolve_resources(
+        br, options.download_path, options.course)
+    downloader(vidoe, srt, txt, pdf, pptx, br, options.download_path)
 
 if __name__ == '__main__':
     main()
